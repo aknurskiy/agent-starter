@@ -51,6 +51,21 @@ dst.hooks = dst.hooks || {};
 const H = dst.hooks;
 const srcHooks = src.hooks || {};
 
+// Пути в командах хуков хранятся в репозитории как {{REPO_ROOT}} и
+// подставляются здесь: пользователь мог склонировать папку куда угодно, а
+// Claude Code запускает команду хука как есть, без раскрытия переменных.
+function withRoot(entry) {
+  if (!entry || !Array.isArray(entry.hooks) || !repoRoot) return entry;
+  return {
+    ...entry,
+    hooks: entry.hooks.map(h =>
+      h && typeof h.command === 'string'
+        ? { ...h, command: h.command.split('{{REPO_ROOT}}').join(repoRoot) }
+        : h,
+    ),
+  };
+}
+
 function commandsOf(entry) {
   return Array.isArray(entry && entry.hooks)
     ? entry.hooks.map(h => h && h.command).filter(Boolean)
@@ -60,9 +75,9 @@ function commandsOf(entry) {
 for (const event of Object.keys(srcHooks)) {
   const existing = Array.isArray(H[event]) ? H[event] : [];
   const existingCommands = new Set(existing.flatMap(commandsOf));
-  const toAdd = (srcHooks[event] || []).filter(
-    entry => !commandsOf(entry).some(cmd => existingCommands.has(cmd)),
-  );
+  const toAdd = (srcHooks[event] || [])
+    .map(withRoot)
+    .filter(entry => !commandsOf(entry).some(cmd => existingCommands.has(cmd)));
   H[event] = [...existing, ...toAdd];
 }
 

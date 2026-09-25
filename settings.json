@@ -89,7 +89,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/agent-starter/dashi-plugin-claude-code/plugin/scripts/require-reply-hook.py"
+            "command": "python3 {{REPO_ROOT}}/dashi-plugin-claude-code/plugin/scripts/require-reply-hook.py"
           }
         ]
       }
