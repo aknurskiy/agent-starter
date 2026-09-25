@@ -21,7 +21,7 @@
 
 ## 2. AgentOS Skills — senior-brainstorm + telegram-bot-builder
 
-Два навыка из интенсива AgentOS (Edge Lab):
+Два готовых навыка в комплекте:
 - **senior-brainstorm** — senior-архитектор для EdTech/SaaS: выбор стека, паттерны, threat modeling _(лицензия MIT)_.
 - **telegram-bot-builder** — генератор Telegram-ботов на Python (aiogram 3 / PTB v21) или TypeScript (grammY).
 

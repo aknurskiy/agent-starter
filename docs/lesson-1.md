@@ -59,13 +59,13 @@
 ## Шаг 3. Скачиваем заготовку (5 мин)
 
 ```bash
-git clone https://github.com/dulmagalanova-svg/intensiv-starter.git intensiv-starter
-cd intensiv-starter
+git clone https://github.com/aknurskiy/agent-starter.git agent-starter
+cd agent-starter
 ```
 
 Или кнопкой **Code → Download ZIP** на странице репозитория → распакуй → открой папку.
 
-✅ Папка `intensiv-starter` на компьютере.
+✅ Папка `agent-starter` на компьютере.
 
 ---
 
@@ -104,7 +104,7 @@ cd ../..
 
 ## Шаг 6. Запускаем агента (2 мин)
 
-Из корня `intensiv-starter`:
+Из корня `agent-starter`:
 
 ```bash
 ./start.sh
