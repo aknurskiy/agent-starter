@@ -1,0 +1,29 @@
+# ───── Секреты (НИКОГДА не коммитить) ─────
+# Твой токен бота и Telegram ID живут только у тебя на компьютере.
+secrets/channel.env
+secrets/*.env
+!secrets/channel.env.example
+*.token
+*.key
+*.pem
+
+# ───── Зависимости (ставятся командой bun install) ─────
+node_modules/
+dist/
+build/
+
+# ───── Рабочее состояние агента (создаётся при запуске) ─────
+state/
+**/state/
+update-offset
+*.log
+
+# ───── Личная память (второй мозг) — остаётся только у тебя ─────
+# Структуру и README сохраняем, личные заметки — нет.
+core/memory/*
+!core/memory/README.md
+!core/memory/.gitkeep
+
+# ───── Прочее ─────
+.DS_Store
+bun.lockb.bak

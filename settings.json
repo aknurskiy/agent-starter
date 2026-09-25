@@ -1,0 +1,98 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read",
+      "Read(./**)",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep",
+      "mcp__dashi-channel",
+      "mcp__dashi-channel__reply",
+      "mcp__dashi-channel__react",
+      "mcp__dashi-channel__edit_message",
+      "mcp__dashi-channel__download_attachment",
+      "mcp__dashi-channel__status",
+      "WebFetch",
+      "WebSearch",
+      "Bash(git *)",
+      "Bash(bun *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(python3 *)",
+      "Bash(pip *)",
+      "Bash(pip3 *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(find *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(touch *)",
+      "Bash(chmod *)",
+      "Bash(echo *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(sed *)",
+      "Bash(diff *)",
+      "Bash(sort *)",
+      "Bash(cut *)",
+      "Bash(tr *)",
+      "Bash(jq *)",
+      "Bash(pwd)",
+      "Bash(cd *)",
+      "Bash(which *)",
+      "Bash(env)",
+      "Bash(export *)",
+      "Bash(source *)",
+      "Bash(tar *)",
+      "Bash(unzip *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(scp *)",
+      "Bash(ssh *)",
+      "Bash(tmux *)",
+      "Bash(systemctl *)",
+      "Bash(journalctl *)",
+      "Bash(kill *)",
+      "Bash(pkill *)",
+      "Bash(ps *)",
+      "Bash(bash *)",
+      "Bash(sh *)",
+      "Bash(stat *)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf /*)",
+      "Bash(curl * | bash)",
+      "Bash(curl * | sh)",
+      "Bash(wget * | bash)",
+      "Bash(wget * | sh)",
+      "Bash(sudo *)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)"
+    ],
+    "additionalDirectories": [
+      "."
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $HOME/intensiv-starter/dashi-plugin-claude-code/plugin/scripts/require-reply-hook.py"
+          }
+        ]
+      }
+    ]
+  }
+}
