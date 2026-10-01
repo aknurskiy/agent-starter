@@ -86,7 +86,19 @@ fi
 
 # 5. Запускаем агента из папки plugin (чтобы Claude Code нашёл CLAUDE.md
 #    в корне репозитория, поднявшись вверх по дереву).
+# 5.1. По умолчанию продолжаем прошлый разговор (флаг -c). Без него каждый
+#      запуск начинается с чистого листа, и агент не помнит, на чём вы
+#      остановились: историю чата Telegram ботам не отдаёт.
+#      Разговор со временем растёт и запускается всё медленнее, поэтому раз
+#      в неделю полезно начать новый:  ./start.sh fresh
+#      Факты и правила при этом не теряются — они лежат в core/memory.
+CONTINUE_FLAG="-c"
+if [ "${1:-}" = "fresh" ]; then
+  CONTINUE_FLAG=""
+  echo "Чистый запуск: начинаю новый разговор (память в core/memory остаётся)."
+fi
+
 echo "Запускаю агента... (для остановки нажми Ctrl+C)"
 echo "Теперь напиши своему боту в Telegram — он ответит."
 cd "$PLUGIN_DIR"
-exec claude --dangerously-skip-permissions --dangerously-load-development-channels server:dashi-channel
+exec claude ${CONTINUE_FLAG} --dangerously-skip-permissions --dangerously-load-development-channels server:dashi-channel
