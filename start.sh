@@ -17,6 +17,35 @@ set -euo pipefail
 # (запускается командой `bun`) не найдётся — и агент не свяжется с Telegram.
 export PATH="$HOME/.bun/bin:$PATH"
 
+# 0. Один экземпляр агента на машину.
+#    Почему это важно: Telegram отдаёт обновления только одному поллеру. Два
+#    запущенных dashi-channel = 409 Conflict, и живая сессия не подключается
+#    к каналу. Раньше launchd (KeepAlive) перезапускал start.sh каждые 30
+#    секунд, claude падал, а MCP-сервер (bun src/server.ts) оставался жить —
+#    за час накапливалось 5+ висящих серверов, каждый жёг CPU и ломал канал.
+#    (детект через ps, а не pgrep: pgrep на этой машине видит не все
+#    процессы пользователя.)
+SELF_PID=$$
+RUNNING="$(ps -axo pid=,command= 2>/dev/null \
+  | grep 'dangerously-load-development-channels server:dashi-channel' \
+  | grep -v grep \
+  | awk '{print $1}' \
+  | grep -v "^${SELF_PID}$" || true)"
+if [ -n "$RUNNING" ]; then
+  echo "Агент уже запущен (PID: $(echo "$RUNNING" | tr '\n' ' '))."
+  echo "Второй экземпляр не поднимаю: два поллера одного бота — это 409 Conflict в Telegram."
+  echo "Если нужен именно перезапуск: pkill -f 'server:dashi-channel' и затем ./start.sh"
+  # Пауза, чтобы launchd с KeepAlive не крутил этот путь каждые 30 секунд.
+  sleep 300
+  exit 0
+fi
+
+# 0.1. Когда агент завершается — забираем с собой его MCP-сервер.
+#      Без этого сервер остаётся сиротой и продолжает опрашивать бота.
+cleanup_mcp() { pkill -f 'src/server.ts' 2>/dev/null || true; }
+trap cleanup_mcp EXIT
+
+
 # Папка, где лежит этот скрипт (корень репозитория).
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$ROOT/secrets/channel.env"
@@ -101,4 +130,67 @@ fi
 echo "Запускаю агента... (для остановки нажми Ctrl+C)"
 echo "Теперь напиши своему боту в Telegram — он ответит."
 cd "$PLUGIN_DIR"
-exec claude ${CONTINUE_FLAG} --dangerously-skip-permissions --dangerously-load-development-channels server:dashi-channel
+
+# 5.2. Находим сам бинарник claude. Под launchd оболочка `bash -lc` прогоняет
+#      /etc/profile и path_helper, который перестраивает PATH с нуля — путь к
+#      nvm при этом теряется, и запуск падал с `exec: claude: not found`.
+#      Поэтому ищем claude явно, а не надеемся на PATH.
+CLAUDE_BIN="$(command -v claude || true)"
+if [ -z "$CLAUDE_BIN" ]; then
+  for cand in "$HOME/.local/bin/claude" "$HOME/.claude/local/claude" \
+              "$HOME"/.nvm/versions/node/*/bin/claude \
+              /opt/homebrew/bin/claude /usr/local/bin/claude; do
+    if [ -x "$cand" ]; then CLAUDE_BIN="$cand"; break; fi
+  done
+fi
+if [ -z "$CLAUDE_BIN" ]; then
+  echo "ОШИБКА: не найден claude (Claude Code CLI)."
+  echo "Проверь установку:  npm i -g @anthropic-ai/claude-code"
+  exit 1
+fi
+
+ARGS=(--dangerously-skip-permissions --dangerously-load-development-channels server:dashi-channel)
+
+# 5.2.1. Под launchd нет TTY: claude в этом случае уходит в режим --print и
+#        падает с "Input must be provided either through stdin or as a prompt
+#        argument". Поэтому для headless-запуска выделяем псевдотерминал
+#        через script(1) — интерактивный запуск из терминала это не трогает.
+#        Плюс claude спрашивает подтверждение на --dangerously-load-
+#        development-channels ("1. I am using this for local development").
+#        В headless-режиме отвечать некому, поэтому через 4 секунды сами
+#        отправляем Enter в pty, а stdin держим открытым (tail -f /dev/null),
+#        иначе claude увидит EOF и закроется.
+HEADLESS=0
+if [ ! -t 0 ] && command -v script >/dev/null 2>&1; then
+  HEADLESS=1
+  echo "Нет TTY (запуск из launchd) — поднимаю агента через pty."
+fi
+
+run_claude() {
+  if [ "$HEADLESS" = "1" ]; then
+    { sleep 4; printf '\r'; exec tail -f /dev/null; } \
+      | script -q /dev/null "$CLAUDE_BIN" "$@"
+  else
+    "$CLAUDE_BIN" "$@"
+  fi
+}
+
+# 5.3. Пробуем продолжить прошлый разговор (-c). Если продолжить не вышло
+#      (например, прошлая сессия оборвалась на середине вызова инструмента —
+#      claude тогда падает с "No deferred tool marker found in the resumed
+#      session"), запускаемся с чистого листа, а не висим в цикле перезапуска.
+#      Память при этом не теряется: факты лежат в core/memory.md.
+if [ -n "$CONTINUE_FLAG" ]; then
+  START_TS=$(date +%s)
+  run_claude "$CONTINUE_FLAG" "${ARGS[@]}" && exit 0
+  RC=$?
+  # Запустился и проработал дольше 20 секунд — значит продолжение удалось, а
+  # вышли уже по другой причине (Ctrl+C, ошибка в работе). Новую сессию в
+  # этом случае не поднимаем: иначе Ctrl+C не завершал бы агента.
+  if [ $(( $(date +%s) - START_TS )) -gt 20 ]; then
+    exit $RC
+  fi
+  echo "Не удалось продолжить прошлый разговор — начинаю новый (память в core/memory.md на месте)."
+fi
+
+run_claude "${ARGS[@]}"

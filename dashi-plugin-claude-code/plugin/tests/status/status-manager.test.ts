@@ -187,32 +187,30 @@ describe('StatusManager.start', () => {
     expect(mgr.isActive('164795011')).toBe(false)
   })
 
-  test('start finalises previous active status before opening a new one', async () => {
-    // M3 fix: only one active status per chat. Calling start() twice in a
-    // row must edit the prior message to a terminal label ("Остановлено:
-    // superseded") before sending the new typing message, otherwise the
-    // album path leaks stale pulsing status messages.
+  test('start silently discards the previous active status before opening a new one', async () => {
+    // Only one active status per chat. Calling start() twice in a row must
+    // DELETE the prior message (no "Остановлено: superseded" label — rapid
+    // user messages are context for the same turn, not a failure), otherwise
+    // the album path leaks stale pulsing status messages.
     const { mgr, api } = makeManager()
     const firstHandle = await mgr.start('164795011', undefined)
     expect(api.calls.filter((c) => c.kind === 'send').length).toBe(1)
     await mgr.start('164795011', undefined)
-    const edits = api.calls.filter((c) => c.kind === 'edit')
-    expect(edits.length).toBeGreaterThanOrEqual(1)
-    // The cancel-edit targets the FIRST message id and ends with "superseded".
-    const cancelEdit = edits.find((e) => e.messageId === firstHandle.messageId)
-    expect(cancelEdit).toBeDefined()
-    expect(cancelEdit!.text).toContain('Остановлено')
-    expect(cancelEdit!.text).toContain('superseded')
+    const deletes = api.calls.filter((c) => c.kind === 'delete')
+    expect(deletes.length).toBe(1)
+    expect(deletes[0]!.messageId).toBe(firstHandle.messageId)
+    // No terminal label is ever rendered for a superseded status.
+    expect(api.calls.filter((c) => c.kind === 'edit')).toEqual([])
     // Two distinct send calls — one per start().
     expect(api.calls.filter((c) => c.kind === 'send').length).toBe(2)
   })
 
-  test('start cancel-edit on the previous status survives a "message not modified" error', async () => {
+  test('start survives a failing delete of the previous status', async () => {
     const { mgr, api } = makeManager()
     await mgr.start('164795011', undefined)
-    // Force the cancel-edit on the previous status to fail with the
-    // benign "not modified" error — start() must still complete.
-    api.failEditWith = new Error('Bad Request: message is not modified')
+    // Force the discard-delete on the previous status to fail — start() must
+    // still complete and leave the new status active.
+    api.failDeleteWith = new Error('Bad Request: message to delete not found')
     await mgr.start('164795011', undefined)
     expect(mgr.isActive('164795011')).toBe(true)
   })

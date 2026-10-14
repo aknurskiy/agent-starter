@@ -187,13 +187,16 @@ export class StatusManager {
     replyToMessageId: number | undefined,
     initialState: StatusState = { kind: 'typing' },
   ): Promise<StatusHandle> {
-    // Only one active status per chat at a time: finalise the previous one
-    // (edit the old message to "Остановлено: superseded" and clear timers)
-    // so we don't leak a stale "Печатает…" message on top of the new one.
-    // Album-path callers in handlers.ts call start() once per album item;
-    // without this terminate step the first item's pulse stays forever.
+    // Only one active status per chat at a time: silently discard the previous
+    // one (delete the old message and clear timers) so we don't leak a stale
+    // "Печатает…" pulse on top of the new one. We DELETE rather than edit to
+    // "Остановлено: superseded" — rapid-fire messages from the user are just
+    // more context for the same turn, and a wall of "superseded" labels reads
+    // like the bot keeps dying. Album-path callers in handlers.ts call start()
+    // once per album item; without this step the first item's pulse stays
+    // forever.
     if (this.entries.has(chatId)) {
-      await this.cancel(chatId, 'superseded')
+      await this.discard(chatId)
     }
 
     const text = renderState(initialState, 0, this.now())
@@ -460,6 +463,27 @@ export class StatusManager {
           error: err instanceof Error ? err.message : String(err),
         })
       }
+    }
+  }
+
+  // Silently retire the active status message: stop timers, drop the entry and
+  // remove the message from the chat. Unlike cancel() this leaves no visible
+  // trace. Used when a newer status supersedes this one.
+  private async discard(chatId: string): Promise<void> {
+    const entry = this.entries.get(chatId)
+    if (!entry) return
+    this.stopTimers(entry)
+    this.entries.delete(chatId)
+    if (!this.telegramApi.deleteMessage) return
+    try {
+      await this.telegramApi.deleteMessage(chatId, entry.handle.messageId)
+    } catch (err) {
+      // Stale message, already deleted, or permission issue — never fatal.
+      this.log.debug('status discard delete failed (ignored)', {
+        chat_id: chatId,
+        message_id: entry.handle.messageId,
+        error: err instanceof Error ? err.message : String(err),
+      })
     }
   }
 
