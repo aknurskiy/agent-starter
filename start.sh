@@ -149,6 +149,19 @@ if [ -z "$CLAUDE_BIN" ]; then
   exit 1
 fi
 
+# 5.1.1. Мост с Телеграмом читает настройки из папки состояния канала, а не из
+#        secrets/channel.env. Раньше этот файл приходилось копировать туда
+#        руками, и забытый шаг был главной причиной, по которой бот молчал
+#        после установки. Теперь копируем сами при каждом запуске.
+STATE_DIR="${TELEGRAM_STATE_DIR:-$HOME/.claude/channels/dashi-telegram-canary}"
+mkdir -p "$STATE_DIR"
+cp "$ENV_FILE" "$STATE_DIR/.env"
+
+# 5.1.2. Фоном проверяем, не вышла ли новая версия набора. Запуск не задерживаем.
+if [ -x "$ROOT/scripts/update-check.sh" ]; then
+  ( "$ROOT/scripts/update-check.sh" >/dev/null 2>&1 & ) || true
+fi
+
 ARGS=(--dangerously-skip-permissions --dangerously-load-development-channels server:dashi-channel)
 
 # 5.2.1. Под launchd нет TTY: claude в этом случае уходит в режим --print и
