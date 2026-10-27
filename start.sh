@@ -162,6 +162,15 @@ if [ -x "$ROOT/scripts/update-check.sh" ]; then
   ( "$ROOT/scripts/update-check.sh" >/dev/null 2>&1 & ) || true
 fi
 
+# 5.1.3. Фоном агент проверяет сам себя и пишет владельцу, только если что-то
+#        сломано. Про одну и ту же поломку сообщает один раз, а не каждый
+#        запуск. Почему при запуске: почти все поломки агента тихие, он не
+#        падает с ошибкой, а просто перестаёт отвечать или начинает забывать,
+#        и владелец узнаёт об этом по тишине через неделю.
+if [ -x "$ROOT/scripts/doctor.sh" ]; then
+  ( sleep 20; "$ROOT/scripts/doctor.sh" --alert >/dev/null 2>&1 & ) || true
+fi
+
 ARGS=(--dangerously-skip-permissions --dangerously-load-development-channels server:dashi-channel)
 
 # 5.2.1. Под launchd нет TTY: claude в этом случае уходит в режим --print и
